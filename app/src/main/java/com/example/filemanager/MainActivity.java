@@ -34,6 +34,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.nio.file.FileVisitor;
 import java.util.ArrayList;
@@ -42,9 +50,10 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_CODE = 100;
-    ListView listView;
-    List<String> sdList;
-    File file;
+    ListView listView, listView_dialog;
+    TextView txtEmpty;
+    List<String> sdList, list_dialog;
+    File file, file_dialog;
     String msg = "";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         listView = findViewById(R.id.list1);
         sdList = new ArrayList<String>();
-
+        txtEmpty = findViewById(R.id.txt_empty);
 
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state)) {
@@ -63,14 +72,8 @@ public class MainActivity extends AppCompatActivity {
                     file = new File(root_sd);
                     String[] list1 = file.list();
                     if (file.exists()) {
-                        File[] list = file.listFiles();
-
-                        for (int i = 0; i < list.length; i++) {
-                            sdList.add(list[i].getName());
-                        }
-                        ArrayAdapter aa = new ArrayAdapter<String>(this,
-                                android.R.layout.simple_list_item_1, sdList);
-                        listView.setAdapter(aa);
+                        setListView(listView, sdList, file);
+                        if(sdList.size()==0) txtEmpty.setText("This folder is empty");
                     }
                 } else {
                     requestPermission();
@@ -78,13 +81,8 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 file = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/");
                 if (file.exists()) {
-                    Log.d("path", file.toString());
-                    File list[] = file.listFiles();
-                    for (int i = 0; i < list.length; i++) {
-                        sdList.add(list[i].getName());
-                    }
-                    ArrayAdapter arrayAdapter = new ArrayAdapter(MainActivity.this, android.R.layout.simple_list_item_1, sdList);
-                    listView.setAdapter(arrayAdapter);
+                    setListView(listView,sdList, file);
+                    if(sdList.size()==0) txtEmpty.setText("This folder is empty");
                 }
             }
 
@@ -94,17 +92,8 @@ public class MainActivity extends AppCompatActivity {
                     File temp_file = new File(file, sdList.get(position) + "/");
                     if (temp_file.exists() && !temp_file.isFile()) { // it is a folder
                         file = new File(file, sdList.get(position) + "/");
-                        File list[] = file.listFiles();
-
-                        sdList.clear();
-
-                        for (int i = 0; i < list.length; i++) {
-                            sdList.add(list[i].getName());
-                        }
-                        Toast.makeText(getApplicationContext(), file.toString(), Toast.LENGTH_LONG).show();
-                        ArrayAdapter arrayAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_list_item_1, sdList);
-                        listView.setAdapter(arrayAdapter);
-
+                        setListView(listView, sdList,file);
+                        if(sdList.size()==0) txtEmpty.setText("This folder is empty");
                     } else {  // it is a file...
                         Toast.makeText(getApplicationContext(), temp_file.getAbsolutePath().toString(), Toast.LENGTH_LONG).show();
                         Log.d("File", "File: " + temp_file.getAbsolutePath() + "\n");
@@ -118,6 +107,17 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
+    }
+    private void setListView(ListView listView, List<String> sdList, File file){
+        File[] list = file.listFiles();
+        sdList.clear();
+        txtEmpty.setText("");
+        for (int i = 0; i < list.length; i++) {
+            sdList.add(list[i].getName());
+        }
+        ArrayAdapter aa = new ArrayAdapter<String>(this,
+                android.R.layout.simple_list_item_1, sdList);
+        listView.setAdapter(aa);
     }
 
     @Override
@@ -142,10 +142,49 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showNewFileDialog() {
+        final Dialog customDialog = new Dialog(MainActivity.this);
+        customDialog.setTitle("New File");
+// match customDialog with custom dialog layout
+        customDialog.setContentView(R.layout.rename_dialog_layout);
+        ((TextView)customDialog.findViewById(R.id.sd_textView1)).setText("New Text File");
+        final EditText sd_txtInputData = (EditText) customDialog
+                .findViewById(R.id.sd_editText1);
+        sd_txtInputData.setHint("");
+        ((Button) customDialog.findViewById(R.id.btn_OK))
+                .setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        File newFile = new File(file, sd_txtInputData.getText().toString()+".txt");
+//                        if(!newFolder.exists()){
+////                            newFolder.mkdirs();
+//////                            sdList.add(0,sd_txtInputData.getText().toString());
+//////                            ((BaseAdapter)listView.getAdapter()).notifyDataSetChanged();
+////                            setListView(new File(newFolder.getParent()));
+////                        }
 
+                        try {
+                            FileWriter writer = new FileWriter(newFile,true);
+                            writer.append("hello :)))");
+                            writer.flush();
+                            writer.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        setListView(listView, sdList, new File(newFile.getParent()));
+                        if(sdList.size()==0) txtEmpty.setText("This folder is empty");
+                        customDialog.dismiss();
+                    }
+                });
+        customDialog.findViewById(R.id.sd_btnClose).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                customDialog.dismiss();
+            }
+        });
+        customDialog.show();
     }
 
-    private void showNewFolderDialog() {
+    private void showNewFolderDialog() { // show Dialog to create a folder
         final Dialog customDialog = new Dialog(MainActivity.this);
         customDialog.setTitle("New Folder");
 // match customDialog with custom dialog layout
@@ -161,8 +200,8 @@ public class MainActivity extends AppCompatActivity {
                         File newFolder = new File(file, sd_txtInputData.getText().toString()+"/");
                         if(!newFolder.exists()){
                             newFolder.mkdirs();
-                            sdList.add(0,sd_txtInputData.getText().toString());
-                            ((BaseAdapter)listView.getAdapter()).notifyDataSetChanged();
+                            setListView(listView, sdList, new File(newFolder.getParent()));
+
                         }
                             customDialog.dismiss();
                     }
@@ -180,17 +219,8 @@ public class MainActivity extends AppCompatActivity {
     public void onBackPressed() {
         String parent = file.getParent().toString();
         file = new File(parent);
-        File list[] = file.listFiles();
-
-        sdList.clear();
-
-        for (int i = 0; i < list.length; i++) {
-            sdList.add(list[i].getName());
-        }
-        Toast.makeText(getApplicationContext(), parent, Toast.LENGTH_LONG).show();
-        ArrayAdapter arrayAdapter = new ArrayAdapter<String>(this,
-                android.R.layout.simple_list_item_1, sdList);
-        listView.setAdapter(arrayAdapter);
+        setListView(listView,sdList, file);
+        if(sdList.size()==0) txtEmpty.setText("This folder is empty");
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
@@ -229,8 +259,9 @@ public class MainActivity extends AppCompatActivity {
                                     ContextMenu.ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(menu, v, menuInfo);
         menu.setHeaderTitle("Select action");
-        menu.add(0, 1, 0, "Rename"); // groupId, itemId, order, title
+        menu.add(0, 1, 0, "Rename"); // g,roupId, itemId, order, title
         menu.add(0, 2, 0, "Delete");
+        menu.add(0,3,0, "Copy to ...");
     }
 
     public boolean onContextItemSelected(MenuItem item) {
@@ -248,12 +279,77 @@ public class MainActivity extends AppCompatActivity {
                         Toast.LENGTH_SHORT).show();
                 showConfirmDeletionDB(this, (int) info.id);
                 return true;
+            case 3:
+                showBrowseDialog(this,(int)info.id);
             default:
                 return super.onContextItemSelected(item);
         }
     }
 
-    private void showConfirmDeletionDB(MainActivity mainActivity, final int position) {
+    private void showBrowseDialog(MainActivity mainActivity, final int position) {
+        final Dialog customDialog = new Dialog(MainActivity.this);
+        customDialog.setTitle("Rename");
+// match customDialog with custom dialog layout
+        customDialog.setContentView(R.layout.browse_dialog);
+        listView_dialog =customDialog.findViewById(R.id.list_dialog);
+        String root_sd = Environment.getExternalStorageDirectory().getAbsolutePath() + "/";
+        Log.v("path", root_sd);
+        file_dialog = new File(root_sd);
+        //String[] list1 = file_dialog.list();
+        if (file_dialog.exists()) {
+            list_dialog = new ArrayList<>();
+            setListView(listView_dialog, list_dialog, file_dialog);
+            listView_dialog.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    File temp_file = new File(file_dialog, list_dialog.get(position) + "/");
+                    if (temp_file.exists() && !temp_file.isFile()) { // it is a folder
+                        file_dialog = new File(file_dialog, list_dialog.get(position) + "/");
+                        setListView(listView_dialog, list_dialog,file_dialog);
+                    }
+                }
+            });
+        }
+
+        ((Button) customDialog.findViewById(R.id.btn_copy))
+                .setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        String destination = file_dialog.getAbsolutePath();
+                        String source = file.getAbsolutePath();
+                        Toast.makeText(MainActivity.this, source+"->"+destination, Toast.LENGTH_SHORT).show();
+                        try {
+                            InputStream is = new FileInputStream(new File(source+"/"+sdList.get(position)));
+                            OutputStream os = new FileOutputStream(new File(destination+"/"+sdList.get(position)));
+                            OutputStreamWriter writer = new OutputStreamWriter(os);
+                            byte[] buffer = new byte[1024];
+                            int len;
+                            while ((len = is.read(buffer)) != -1)
+                                os.write(buffer, 0, len);
+                            writer.close();
+                            os.close();
+                            Toast.makeText(MainActivity.this,file_dialog.getAbsolutePath(),Toast.LENGTH_SHORT).show();
+                        } catch (FileNotFoundException e) {
+                            e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        //String newName = sd_txtInputData.getText().toString();
+
+                        customDialog.dismiss();
+                    }
+                });
+        customDialog.findViewById(R.id.btn_cancel).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                customDialog.dismiss();
+            }
+        });
+        customDialog.show();
+    }
+
+    private void showConfirmDeletionDB(MainActivity mainActivity, final int position) { // show Dialog to confirm deleting a folder/file
         new AlertDialog.Builder(mainActivity)
                 .setTitle("Confirm Deletion")
                 .setMessage("1 item is going to be deleted. \n Do you want to continue?")
@@ -284,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }// showMyAlertDialog
 
-    void deleteRecursive(File fileOrDirectory) {
+    void deleteRecursive(File fileOrDirectory) { // detele a folder/file
         if (fileOrDirectory.isDirectory())
             for (File child : fileOrDirectory.listFiles())
                 deleteRecursive(child);
@@ -292,7 +388,7 @@ public class MainActivity extends AppCompatActivity {
         fileOrDirectory.delete();
     }
 
-    private void showRenameDB(final int position) {
+    private void showRenameDB(final int position) { // Show Dialog to rename
         final Dialog customDialog = new Dialog(MainActivity.this);
         customDialog.setTitle("Rename");
 // match customDialog with custom dialog layout
@@ -328,19 +424,32 @@ public class MainActivity extends AppCompatActivity {
     public void openFile(String path) {
         try {
             File file2open = new File(path);
-            String fileExtension = path.substring(path.lastIndexOf("."));
+            String fileExtension = file2open.getAbsolutePath().substring(path.lastIndexOf("."));
             Log.d("path",file2open.getAbsolutePath());
-            Log.d("file extension", fileExtension);
-            Uri dir = Uri.fromFile(file2open);
-            Intent fileIntent = new Intent(Intent.ACTION_VIEW);
-
+            Log.d("path",fileExtension);
+            String type = "text/plain";
+            Intent fileIntent =new Intent(Intent.ACTION_VIEW);
             fileIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
-//            fileIntent.setDataAndType(dir, "image/jpeg");
             Uri apkURI = FileProvider.getUriForFile(
                     getApplicationContext(),
                     getApplicationContext()
-                            .getPackageName() + ".provider", file);
-            fileIntent.setDataAndType(apkURI, "application/pdf");
+                            .getPackageName() + ".provider", file2open);
+            if(fileExtension.equalsIgnoreCase(".doc")||fileExtension.equalsIgnoreCase(".docx"))
+                type = "application/msword";
+            else if(fileExtension.equalsIgnoreCase(".pdf"))
+                type = "application/pdf";
+            else if(fileExtension.equalsIgnoreCase(".xls")||fileExtension.equalsIgnoreCase(".xlsx"))
+                type = "application/vnd.ms-excel";
+            else if(fileExtension.equalsIgnoreCase(".wav")||fileExtension.equalsIgnoreCase(".mp3"))
+                type = "audio/x-wav";
+            else if(fileExtension.equalsIgnoreCase(".jpg")||fileExtension.equalsIgnoreCase(".jpeg")||fileExtension.equalsIgnoreCase(".png"))
+                type = "image/jpeg";
+            else if(fileExtension.equalsIgnoreCase(".txt"))
+                type = "text/plain";
+            else if(fileExtension.equalsIgnoreCase(".3gp")||fileExtension.equalsIgnoreCase(".mp4")||fileExtension.equalsIgnoreCase(".avi"))
+                type = "video/*";
+            else type = "*/*";
+            fileIntent.setDataAndType(apkURI, type);
             fileIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             getApplicationContext().startActivity(fileIntent);
         } catch (ActivityNotFoundException e) {
