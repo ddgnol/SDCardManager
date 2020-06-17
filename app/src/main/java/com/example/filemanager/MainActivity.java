@@ -53,12 +53,13 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_CODE = 100;
-    ListView listView, listView_dialog;
+    ListView listView;
     TextView txtEmpty;
-    List<String> sdList, list_dialog;
-    File file, file_dialog;
+    List<String> sdList;
+    File file;
     String msg = "";
     ActionBar actionBar;
+    String root_sd;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -67,13 +68,14 @@ public class MainActivity extends AppCompatActivity {
         sdList = new ArrayList<String>();
         txtEmpty = findViewById(R.id.txt_empty);
         actionBar = getSupportActionBar();
+        actionBar.setTitle("SD Card");
         actionBar.setDisplayHomeAsUpEnabled(true);
         actionBar.setHomeButtonEnabled(true);
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state)) {
             if (Build.VERSION.SDK_INT >= 23) { //Hoi quyen truy nhap tu user
                 if (checkPermission()) {
-                    String root_sd = Environment.getExternalStorageDirectory().getAbsolutePath() + "/";
+                    root_sd = Environment.getExternalStorageDirectory().getAbsolutePath();
                     Log.v("path", root_sd);
                     file = new File(root_sd);
                     String[] list1 = file.list();
@@ -115,6 +117,13 @@ public class MainActivity extends AppCompatActivity {
 
     }
     private void setListView(ListView listView, List<String> sdList, File file){
+        String s = file.getAbsolutePath();
+        String folderName = "";
+        if(!s.equals(root_sd)) {
+            folderName = s.substring(root_sd.length()+1);
+            actionBar.setTitle(folderName);
+        }
+        else actionBar.setTitle("SD Card");
         File[] list = file.listFiles();
         sdList.clear();
         txtEmpty.setText("");
@@ -228,10 +237,13 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        String parent = file.getParent().toString();
-        file = new File(parent);
-        setListView(listView,sdList, file);
-        if(sdList.size()==0) txtEmpty.setText("This folder is empty");
+        if(!file.getAbsolutePath().equals(root_sd)) {
+            String parent = file.getParent().toString();
+            file = new File(parent);
+            setListView(listView, sdList, file);
+            if (sdList.size() == 0) txtEmpty.setText("This folder is empty");
+        }
+        else finish();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
@@ -291,78 +303,14 @@ public class MainActivity extends AppCompatActivity {
                 showConfirmDeletionDB(this, (int) info.id);
                 return true;
             case 3:
-                showBrowseDialog(this,(int)info.id);
+                Intent intent = new Intent(MainActivity.this, CopyActivity.class);
+                intent.putExtra("source", file.getAbsolutePath()+"/"+sdList.get((int) info.id));
+                startActivity(intent);
+                return true;
             default:
                 return super.onContextItemSelected(item);
         }
     }
-
-    private void showBrowseDialog(MainActivity mainActivity, final int position) {
-        final Dialog customDialog = new Dialog(MainActivity.this);
-        customDialog.setTitle("Rename");
-// match customDialog with custom dialog layout
-        customDialog.setContentView(R.layout.browse_dialog);
-        listView_dialog =customDialog.findViewById(R.id.list_dialog);
-        final TextView folder = customDialog.findViewById(R.id.txt_folder);
-        String root_sd = Environment.getExternalStorageDirectory().getAbsolutePath() + "/";
-        Log.v("path", root_sd);
-        file_dialog = new File(root_sd);
-        //String[] list1 = file_dialog.list();
-        if (file_dialog.exists()) {
-            list_dialog = new ArrayList<>();
-            folder.setText(file_dialog.getAbsolutePath());
-            setListView(listView_dialog, list_dialog, file_dialog);
-            listView_dialog.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                @Override
-                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                    File temp_file = new File(file_dialog, list_dialog.get(position) + "/");
-                    if (temp_file.exists() && !temp_file.isFile()) { // it is a folder
-                        file_dialog = new File(file_dialog, list_dialog.get(position) + "/");
-                        folder.setText(file_dialog.getAbsolutePath());
-                        setListView(listView_dialog, list_dialog,file_dialog);
-                    }
-                }
-            });
-        }
-
-        ((Button) customDialog.findViewById(R.id.btn_copy))
-                .setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        String destination = file_dialog.getAbsolutePath();
-                        String source = file.getAbsolutePath();
-                        Toast.makeText(MainActivity.this, source+"->"+destination, Toast.LENGTH_SHORT).show();
-                        try {
-                            InputStream is = new FileInputStream(new File(source+"/"+sdList.get(position)));
-                            OutputStream os = new FileOutputStream(new File(destination+"/"+sdList.get(position)));
-                            OutputStreamWriter writer = new OutputStreamWriter(os);
-                            byte[] buffer = new byte[1024];
-                            int len;
-                            while ((len = is.read(buffer)) != -1)
-                                os.write(buffer, 0, len);
-                            writer.close();
-                            os.close();
-                            Toast.makeText(MainActivity.this,file_dialog.getAbsolutePath(),Toast.LENGTH_SHORT).show();
-                        } catch (FileNotFoundException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
-                        //String newName = sd_txtInputData.getText().toString();
-
-                        customDialog.dismiss();
-                    }
-                });
-        customDialog.findViewById(R.id.btn_cancel).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                customDialog.dismiss();
-            }
-        });
-        customDialog.show();
-    }
-
     private void showConfirmDeletionDB(MainActivity mainActivity, final int position) { // show Dialog to confirm deleting a folder/file
         new AlertDialog.Builder(mainActivity)
                 .setTitle("Confirm Deletion")
