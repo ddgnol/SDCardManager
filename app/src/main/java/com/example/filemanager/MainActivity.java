@@ -2,6 +2,7 @@ package com.example.filemanager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -33,6 +34,8 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.w3c.dom.Text;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -55,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     List<String> sdList, list_dialog;
     File file, file_dialog;
     String msg = "";
+    ActionBar actionBar;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,7 +66,9 @@ public class MainActivity extends AppCompatActivity {
         listView = findViewById(R.id.list1);
         sdList = new ArrayList<String>();
         txtEmpty = findViewById(R.id.txt_empty);
-
+        actionBar = getSupportActionBar();
+        actionBar.setDisplayHomeAsUpEnabled(true);
+        actionBar.setHomeButtonEnabled(true);
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state)) {
             if (Build.VERSION.SDK_INT >= 23) { //Hoi quyen truy nhap tu user
@@ -124,6 +130,7 @@ public class MainActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
 // Inflate the menu; add items to the action bar
         getMenuInflater().inflate(R.menu.main, menu);
+
         return true;
     }
     @Override
@@ -132,6 +139,10 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
         if (id == R.id.act_newFolder) {
             showNewFolderDialog();
+            return true;
+        }
+        if(id== android.R.id.home){
+            onBackPressed();
             return true;
         }
         else if(id == R.id.act_newFile) {
@@ -292,12 +303,14 @@ public class MainActivity extends AppCompatActivity {
 // match customDialog with custom dialog layout
         customDialog.setContentView(R.layout.browse_dialog);
         listView_dialog =customDialog.findViewById(R.id.list_dialog);
+        final TextView folder = customDialog.findViewById(R.id.txt_folder);
         String root_sd = Environment.getExternalStorageDirectory().getAbsolutePath() + "/";
         Log.v("path", root_sd);
         file_dialog = new File(root_sd);
         //String[] list1 = file_dialog.list();
         if (file_dialog.exists()) {
             list_dialog = new ArrayList<>();
+            folder.setText(file_dialog.getAbsolutePath());
             setListView(listView_dialog, list_dialog, file_dialog);
             listView_dialog.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                 @Override
@@ -305,6 +318,7 @@ public class MainActivity extends AppCompatActivity {
                     File temp_file = new File(file_dialog, list_dialog.get(position) + "/");
                     if (temp_file.exists() && !temp_file.isFile()) { // it is a folder
                         file_dialog = new File(file_dialog, list_dialog.get(position) + "/");
+                        folder.setText(file_dialog.getAbsolutePath());
                         setListView(listView_dialog, list_dialog,file_dialog);
                     }
                 }
